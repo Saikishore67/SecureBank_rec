@@ -39,14 +39,13 @@ public abstract class Account {
 
     // ---------- money operations ----------
 
-    public void deposit(double amount) throws InvalidAmountException {
+        public void deposit(double amount) throws InvalidAmountException {
         deposit(amount, Transaction.Type.DEPOSIT);
     }
 
     public void deposit(double amount, Transaction.Type type) throws InvalidAmountException {
         validateAmount(amount);
-        balance += amount;
-        recordTransaction(new Transaction(accountNumber, type, amount, balance));
+        applyCredit(amount, type);
     }
 
     public void withdraw(double amount)
@@ -63,7 +62,11 @@ public abstract class Account {
             throw new InvalidAmountException(amount);
         }
     }
-
+        // Money in: the mirror image of applyDebit
+    protected void applyCredit(double amount, Transaction.Type type) {
+        balance += amount;
+        recordTransaction(new Transaction(accountNumber, type, amount, balance));
+    }
     // Children call this AFTER their own rule check has passed
     protected void applyDebit(double amount, Transaction.Type type) {
         balance -= amount;
