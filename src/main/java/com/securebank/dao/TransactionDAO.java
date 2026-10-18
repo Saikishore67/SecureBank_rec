@@ -57,7 +57,7 @@ public class TransactionDAO {
      * The account row must already exist because transactions.account_number
      * has a foreign-key constraint to accounts.account_number.
      */
-    public Transaction insert(Transaction transaction) throws SQLException {
+    public Transaction save(Connection connection, Transaction transaction) throws SQLException {
         Objects.requireNonNull(transaction, "transaction must not be null");
 
         if (transaction.getAccountNumber() <= 0) {
@@ -72,9 +72,7 @@ public class TransactionDAO {
             throw new IllegalArgumentException("Balance after transaction must be finite.");
         }
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     INSERT_SQL, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement statement = connection.prepareStatement(INSERT_SQL, Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setInt(1, transaction.getAccountNumber());
             statement.setString(2, transaction.getType().name());
