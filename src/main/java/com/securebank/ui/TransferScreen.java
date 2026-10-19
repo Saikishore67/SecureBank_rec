@@ -1,9 +1,17 @@
 
 package com.securebank.ui;
 
-import java.util.Scanner;
-
+import com.securebank.exception.AccountLockedException;
+import com.securebank.exception.AccountNotFoundException;
+import com.securebank.exception.InsufficientFundsException;
+import com.securebank.exception.InvalidAmountException;
+import com.securebank.exception.InvalidPinException;
+import com.securebank.model.Account;
+import com.securebank.service.Bank;
 import com.securebank.util.PinHasher;
+
+import java.sql.SQLException;
+import java.util.Scanner;
 
 public class TransferScreen {
 
@@ -15,39 +23,23 @@ public class TransferScreen {
         System.out.println("+--------------------------------------+");
 
         try {
-            System.out.print("Enter sender account number: ");
-            String senderInput = scanner.nextLine().trim();
+            System.out.print("Enter your account number: ");
+            int fromAccount = readAccountNumber(scanner);
 
-            int senderAccount;
-            try {
-                senderAccount = Integer.parseInt(senderInput);
-
-                if (senderAccount <= 0) {
-                    System.out.println("[ERROR] Enter a valid sender account number.");
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("[ERROR] Sender account number must be numeric.");
+            if (fromAccount <= 0) {
+                System.out.println("[ERROR] Enter a valid account number.");
                 return;
             }
 
             System.out.print("Enter receiver account number: ");
-            String receiverInput = scanner.nextLine().trim();
+            int toAccount = readAccountNumber(scanner);
 
-            int receiverAccount;
-            try {
-                receiverAccount = Integer.parseInt(receiverInput);
-
-                if (receiverAccount <= 0) {
-                    System.out.println("[ERROR] Enter a valid receiver account number.");
-                    return;
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("[ERROR] Receiver account number must be numeric.");
+            if (toAccount <= 0) {
+                System.out.println("[ERROR] Enter a valid account number.");
                 return;
             }
 
-            if (senderAccount == receiverAccount) {
+            if (fromAccount == toAccount) {
                 System.out.println("[ERROR] Sender and receiver accounts must differ.");
                 return;
             }
@@ -66,7 +58,6 @@ public class TransferScreen {
             double amount;
             try {
                 amount = Double.parseDouble(amountInput);
-
                 if (!Double.isFinite(amount) || amount <= 0) {
                     System.out.println("[ERROR] Amount must be greater than zero.");
                     return;
@@ -76,24 +67,39 @@ public class TransferScreen {
                 return;
             }
 
+            Bank bank = new Bank();
+            Account account = bank.transfer(
+                    fromAccount, toAccount, pin, amount);
+
             System.out.println();
             System.out.println("----------------------------------------");
-            System.out.println("Transfer details entered successfully.");
-            System.out.println("From account : " + senderAccount);
-            System.out.println("To account   : " + receiverAccount);
-            System.out.printf("Amount       : %.2f%n", amount);
+            System.out.println("[SUCCESS] Transfer completed.");
+            System.out.printf("Transferred amount: Rs. %.2f%n", amount);
+            System.out.printf("Remaining balance : Rs. %.2f%n",
+                    account.getBalance());
             System.out.println("----------------------------------------");
 
-            // Connect this screen to the Bank service after
-            // its method signatures are available.
-            System.out.println(
-                "[INFO] Transfer service is not connected yet."
-            );
-
-        } catch (Exception e) {
-            System.out.println(
-                "[ERROR] Unable to process the input. Please try again."
-            );
+        } catch (NumberFormatException e) {
+            System.out.println("[ERROR] Account number must be numeric.");
+        } catch (AccountNotFoundException e) {
+            System.out.println("[ERROR] Sender or receiver account not found.");
+        } catch (AccountLockedException e) {
+            System.out.println("[ERROR] Sender account is locked.");
+        } catch (InvalidPinException e) {
+            System.out.println("[ERROR] Invalid PIN.");
+        } catch (InsufficientFundsException e) {
+            System.out.println("[ERROR] Insufficient funds for this transfer.");
+        } catch (InvalidAmountException e) {
+            System.out.println("[ERROR] Invalid transfer amount.");
+        } catch (SQLException e) {
+            System.out.println("[ERROR] A database error occurred. Please try again.");
+        } catch (RuntimeException e) {
+            System.out.println("[ERROR] Unable to complete transfer: "
+                    + e.getMessage());
         }
+    }
+
+    private static int readAccountNumber(Scanner scanner) {
+        return Integer.parseInt(scanner.nextLine().trim());
     }
 }

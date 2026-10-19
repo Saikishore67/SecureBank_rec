@@ -1,9 +1,16 @@
 
 package com.securebank.ui;
 
-import java.util.Scanner;
-
+import com.securebank.exception.AccountLockedException;
+import com.securebank.exception.AccountNotFoundException;
+import com.securebank.exception.InvalidPinException;
+import com.securebank.model.Transaction;
+import com.securebank.service.Bank;
 import com.securebank.util.PinHasher;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Scanner;
 
 public class StatementScreen {
 
@@ -39,24 +46,44 @@ public class StatementScreen {
                 return;
             }
 
+            Bank bank = new Bank();
+            List<Transaction> transactions =
+                    bank.getStatement(accountNumber, pin);
+
             System.out.println();
-            System.out.println("------------------------------------------------------+");
             System.out.println(" Account: " + accountNumber);
             System.out.println("------------------------------------------------------+");
-            System.out.printf("%-8s %-16s %12s %14s%n",
+            System.out.printf("%-12s %-20s %12s %14s%n",
                     "Type", "Date & Time", "Amount", "Balance");
             System.out.println("------------------------------------------------------+");
 
-            // Transaction history will be retrieved through
-            // the Bank service once its method signature is available.
-            System.out.println("[INFO] Statement service is not connected yet.");
+            if (transactions.isEmpty()) {
+                System.out.println("[INFO] No transactions found.");
+            } else {
+                for (Transaction transaction : transactions) {
+                    System.out.printf("%-12s %-20s %12.2f %14.2f%n",
+                            transaction.getType(),
+                            String.valueOf(transaction.getTimestamp()),
+                            transaction.getAmount(),
+                            transaction.getBalanceAfter());
+                }
+            }
 
             System.out.println("------------------------------------------------------+");
 
-        } catch (Exception e) {
+        } catch (AccountNotFoundException e) {
+            System.out.println("[ERROR] Account not found.");
+        } catch (AccountLockedException e) {
+            System.out.println("[ERROR] Account is locked.");
+        } catch (InvalidPinException e) {
+            System.out.println("[ERROR] Invalid PIN.");
+        } catch (SQLException e) {
             System.out.println(
-                "[ERROR] Unable to retrieve the statement. Please try again."
-            );
+                    "[ERROR] A database error occurred. Please try again.");
+        } catch (RuntimeException e) {
+            System.out.println(
+                    "[ERROR] Unable to retrieve the statement: "
+                            + e.getMessage());
         }
     }
 }

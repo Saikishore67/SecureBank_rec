@@ -1,9 +1,17 @@
 
 package com.securebank.ui;
 
-import java.util.Scanner;
-
+import com.securebank.exception.AccountLockedException;
+import com.securebank.exception.AccountNotFoundException;
+import com.securebank.exception.InsufficientFundsException;
+import com.securebank.exception.InvalidAmountException;
+import com.securebank.exception.InvalidPinException;
+import com.securebank.model.Account;
+import com.securebank.service.Bank;
 import com.securebank.util.PinHasher;
+
+import java.sql.SQLException;
+import java.util.Scanner;
 
 public class WithdrawScreen {
 
@@ -17,11 +25,6 @@ public class WithdrawScreen {
         try {
             System.out.print("Enter account number: ");
             String accountInput = scanner.nextLine().trim();
-
-            if (accountInput.isEmpty()) {
-                System.out.println("[ERROR] Account number cannot be empty.");
-                return;
-            }
 
             int accountNumber;
             try {
@@ -49,7 +52,6 @@ public class WithdrawScreen {
             double amount;
             try {
                 amount = Double.parseDouble(amountInput);
-
                 if (!Double.isFinite(amount) || amount <= 0) {
                     System.out.println("[ERROR] Amount must be greater than zero.");
                     return;
@@ -59,23 +61,33 @@ public class WithdrawScreen {
                 return;
             }
 
+            // Call the actual banking service.
+            Bank bank = new Bank();
+            Account account = bank.withdraw(accountNumber, pin, amount);
+
             System.out.println();
             System.out.println("----------------------------------------");
-            System.out.println("Withdrawal details entered successfully.");
-            System.out.println("Account number : " + accountNumber);
-            System.out.printf("Amount         : %.2f%n", amount);
+            System.out.println("[SUCCESS] Withdrawal completed.");
+            System.out.printf("Withdrawn amount : Rs. %.2f%n", amount);
+            System.out.printf("Remaining balance: Rs. %.2f%n",
+                    account.getBalance());
             System.out.println("----------------------------------------");
 
-            // Service integration will be added after the Bank
-            // service method signatures are confirmed.
-            System.out.println(
-                "[INFO] Withdrawal service is not connected yet."
-            );
-
-        } catch (Exception e) {
-            System.out.println(
-                "[ERROR] Unable to process the input. Please try again."
-            );
+        } catch (AccountNotFoundException e) {
+            System.out.println("[ERROR] Account not found.");
+        } catch (AccountLockedException e) {
+            System.out.println("[ERROR] Account is locked. Please contact the bank.");
+        } catch (InvalidPinException e) {
+            System.out.println("[ERROR] Invalid PIN.");
+        } catch (InsufficientFundsException e) {
+            System.out.println("[ERROR] Insufficient funds for this withdrawal.");
+        } catch (InvalidAmountException e) {
+            System.out.println("[ERROR] Invalid withdrawal amount.");
+        } catch (SQLException e) {
+            System.out.println("[ERROR] A database error occurred. Please try again.");
+        } catch (RuntimeException e) {
+            System.out.println("[ERROR] Unable to complete withdrawal: "
+                    + e.getMessage());
         }
     }
 }
