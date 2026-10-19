@@ -1,5 +1,6 @@
 package com.securebank;
 
+import com.securebank.dao.AccountDAO;
 import com.securebank.exception.AccountLockedException;
 import com.securebank.exception.AccountNotFoundException;
 import com.securebank.exception.InsufficientFundsException;
@@ -30,6 +31,7 @@ class BankTransferTest {
     private static final double DELTA = 0.01;
 
     private final Bank bank = new Bank();
+    private final AccountDAO accountDAO = new AccountDAO();
 
     // ---------- helpers ----------
 
@@ -37,8 +39,11 @@ class BankTransferTest {
         return bank.openAccount(type, "Test " + type, opening, PIN);
     }
 
+    private Account reload(int accountNumber) throws Exception {
+        return accountDAO.findByAccountNumber(accountNumber).orElseThrow();
+    }
     private double balanceOf(Account account) throws Exception {
-        return bank.getAccount(account.getAccountNumber()).getBalance();
+        return reload(account.getAccountNumber()).getBalance();
     }
 
     private List<Transaction> statementOf(Account account) throws Exception {
@@ -90,7 +95,8 @@ class BankTransferTest {
                 () -> bank.withdraw(from, WRONG_PIN, 100.00));
 
         // Locked in the database, and refused even with the correct PIN
-        assertTrue(bank.getAccount(from).isLocked());
+//        assertTrue(reload(from).isLocked());
+        assertTrue(reload(from).isLocked());
         assertThrows(AccountLockedException.class,
                 () -> bank.withdraw(from, PIN, 100.00));
         assertThrows(AccountLockedException.class,
