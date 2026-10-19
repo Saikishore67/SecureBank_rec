@@ -91,8 +91,13 @@ public class Bank {
     }
 
 
-    public Account getAccount(int accountNumber)
-            throws AccountNotFoundException, SQLException {
+    public Account getAccount(int accountNumber, String pin)
+            throws AccountNotFoundException, SQLException,
+            InvalidPinException, AccountLockedException {
+
+        Account account = requireAccount(accountNumber);
+        authService.verifyPin(account, pin);
+
         return requireAccount(accountNumber);
     }
 
