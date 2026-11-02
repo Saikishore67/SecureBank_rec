@@ -214,7 +214,7 @@ class BankTransferTest {
         int number = account.getAccountNumber();
 
         for (double amount : new double[] {100, 200, 300, 400, 500}) {   // 2 to 6
-            bank.deposit(number, amount);
+            bank.deposit(number, amount, PIN);
         }
 
         List<Transaction> statement = bank.getStatement(number, PIN);
@@ -241,7 +241,7 @@ class BankTransferTest {
         int to = receiver.getAccountNumber();
 
         assertThrows(InvalidAmountException.class,
-                () -> bank.deposit(from, badAmount));
+                () -> bank.deposit(from, badAmount, PIN));
         assertThrows(InvalidAmountException.class,
                 () -> bank.withdraw(from, PIN, badAmount));
         assertThrows(InvalidAmountException.class,
@@ -297,9 +297,11 @@ class BankTransferTest {
                 () -> bank.deposit(account.getAccountNumber(), 500.00, WRONG_PIN));
 
         assertEquals(2, e.getAttemptsRemaining());
+
+        // Check the counter FIRST: statementOf() uses the correct PIN, which resets it
+        assertEquals(1, reload(account.getAccountNumber()).getFailedAttempts());
         assertEquals(2000.00, balanceOf(account), DELTA);
         assertEquals(1, statementOf(account).size(), "only the opening deposit");
-        assertEquals(1, reload(account.getAccountNumber()).getFailedAttempts());
     }
 
     @Test
