@@ -2,6 +2,8 @@ package com.securebank.ui;
 
 import com.securebank.exception.AccountNotFoundException;
 import com.securebank.exception.InvalidAmountException;
+import com.securebank.exception.InvalidPinException;
+import com.securebank.exception.AccountLockedException;
 import com.securebank.model.Account;
 import com.securebank.service.Bank;
 
@@ -22,9 +24,11 @@ public final class DepositScreen {
                 InputHelper.readPositiveInt(scanner, "Enter account number: ");
         double amount =
                 InputHelper.readPositiveAmount(scanner, "Enter deposit amount (Rs.): ");
+        String pin =
+                InputHelper.readPin(scanner, "Enter your 4-digit PIN: ");
 
         try {
-            Account account = bank.deposit(accountNumber, amount);
+            Account account = bank.deposit(accountNumber, amount, pin);
 
             ConsoleUtil.printSuccess("Deposit completed successfully.");
             System.out.println("Account number      : " + account.getAccountNumber());
@@ -37,6 +41,10 @@ public final class DepositScreen {
             ConsoleUtil.printError(
                     "The deposit could not be saved. Please check the database connection.");
             System.err.println("Database detail: " + exception.getMessage());
+        } catch (AccountLockedException e) {
+            System.out.println("[ERROR] You're account is locker.");
+        } catch (InvalidPinException e) {
+            System.out.println("[ERROR] Invalid Pin");
         }
     }
 }

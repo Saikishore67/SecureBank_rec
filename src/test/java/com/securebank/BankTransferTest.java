@@ -250,4 +250,121 @@ class BankTransferTest {
         assertEquals(5000.00, balanceOf(sender), DELTA);
         assertEquals(5000.00, balanceOf(receiver), DELTA);
     }
+    // ---------- deposits (PIN-protected) ----------
+
+    @Test
+    void depositWithCorrectPinUpdatesBalanceAndStatement() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+
+        Account after = bank.deposit(account.getAccountNumber(), 750.00, PIN);
+
+        assertEquals(2750.00, after.getBalance(), DELTA);
+        assertEquals(2750.00, balanceOf(account), DELTA);
+
+        List<Transaction> statement = statementOf(account);
+        assertEquals(2, statement.size(), "opening deposit + this deposit");
+        Transaction latest = statement.get(0);
+        assertEquals(Transaction.Type.DEPOSIT, latest.getType());
+        assertEquals(750.00, latest.getAmount(), DELTA);
+        assertEquals(2750.00, latest.getBalanceAfter(), DELTA);
+    }
+
+    @Test
+    void depositIntoOverdrawnCurrentAccountReducesTheNegativeBalance() throws Exception {
+        Account current = open(AccountType.CURRENT, 1000.00);
+        bank.withdraw(current.getAccountNumber(), PIN, 4000.00);   // balance -3000
+
+        Account after = bank.deposit(current.getAccountNumber(), 1000.00, PIN);
+
+        assertEquals(-2000.00, after.getBalance(), DELTA);
+        assertEquals(-2000.00, balanceOf(current), DELTA);
+    }
+
+    @Test
+    void depositAmountIsRoundedToTwoDecimals() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+
+        bank.deposit(account.getAccountNumber(), 100.456, PIN);
+
+        assertEquals(2100.46, balanceOf(account), DELTA);
+    }
+
+    @Test
+    void depositWithWrongPinChangesNothingAndCountsAnAttempt() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+
+        InvalidPinException e = assertThrows(InvalidPinException.class,
+                () -> bank.deposit(account.getAccountNumber(), 500.00, WRONG_PIN));
+
+        assertEquals(2, e.getAttemptsRemaining());
+        assertEquals(2000.00, balanceOf(account), DELTA);
+        assertEquals(1, statementOf(account).size(), "only the opening deposit");
+        assertEquals(1, reload(account.getAccountNumber()).getFailedAttempts());
+    }
+
+    @Test
+    void depositWithMalformedPinIsRejectedWithoutCostingAnAttempt() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+
+        assertThrows(InvalidPinException.class,
+                () -> bank.deposit(account.getAccountNumber(), 500.00, "12"));
+        assertThrows(InvalidPinException.class,
+                () -> bank.deposit(account.getAccountNumber(), 500.00, "abcd"));
+
+        assertEquals(0, reload(account.getAccountNumber()).getFailedAttempts());
+        assertEquals(2000.00, balanceOf(account), DELTA);
+    }
+
+    @Test
+    void correctPinAfterAWrongOneResetsTheAttemptCounter() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+        int number = account.getAccountNumber();
+
+        assertThrows(InvalidPinException.class,
+                () -> bank.deposit(number, 100.00, WRONG_PIN));
+        assertEquals(1, reload(number).getFailedAttempts());
+
+        bank.deposit(number, 100.00, PIN);
+
+        assertEquals(0, reload(number).getFailedAttempts());
+        assertEquals(2100.00, balanceOf(account), DELTA);
+    }
+
+    @Test
+    void threeWrongPinsOnDepositLockTheAccount() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+        int number = account.getAccountNumber();
+
+        assertThrows(InvalidPinException.class,
+                () -> bank.deposit(number, 100.00, WRONG_PIN));
+        assertThrows(InvalidPinException.class,
+                () -> bank.deposit(number, 100.00, WRONG_PIN));
+        assertThrows(AccountLockedException.class,
+                () -> bank.deposit(number, 100.00, WRONG_PIN));
+
+        assertTrue(reload(number).isLocked());
+
+        // Refused even with the correct PIN
+        assertThrows(AccountLockedException.class,
+                () -> bank.deposit(number, 100.00, PIN));
+        assertEquals(2000.00, balanceOf(account), DELTA);
+    }
+
+    @Test
+    void depositToUnknownAccountThrowsNotFound() {
+        assertThrows(AccountNotFoundException.class,
+                () -> bank.deposit(-1, 100.00, PIN));
+    }
+
+    @Test
+    void invalidAmountOnDepositIsRejectedBeforeThePinIsChecked() throws Exception {
+        Account account = open(AccountType.SAVINGS, 2000.00);
+
+        // Wrong PIN AND bad amount: the amount error wins, no attempt is burned
+        assertThrows(InvalidAmountException.class,
+                () -> bank.deposit(account.getAccountNumber(), -100.00, WRONG_PIN));
+
+        assertEquals(0, reload(account.getAccountNumber()).getFailedAttempts());
+        assertEquals(2000.00, balanceOf(account), DELTA);
+    }
 }

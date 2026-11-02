@@ -102,11 +102,14 @@ public class Bank {
     }
 
 
-    public Account deposit(int accountNumber, double amount)
-            throws AccountNotFoundException, InvalidAmountException, SQLException {
+    public Account deposit(int accountNumber, double amount, String pin)
+            throws AccountNotFoundException, InvalidAmountException,
+            SQLException , InvalidPinException, AccountLockedException {
 
         double value = normaliseAmount(amount);
         Account account = requireAccount(accountNumber);
+
+        authService.verifyPin(account, pin);
 
         account.deposit(value);
         saveChanges(account);
